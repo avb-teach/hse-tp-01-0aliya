@@ -1,8 +1,8 @@
 #!/bin/bash
-max_depth=-1
+max_depth=-1 #парсинг параметров
 src=""
 dest=""
-if [[ "$1" == "--max_depth" ]];then
+if [[ "$1" == "--max_depth" ]];then #обработка глубины
     if [[ $# -ne 4 || ! "$2" =~ ^[0-9]+$ ]];then
         exit 1
     fi
@@ -17,29 +17,36 @@ else
     dest=$2
 fi
 
-[[ -d "$src" ]] || exit 1
-mkdir -p "$dest" 2>/dev/null || exit 1
-process_file() {
+[[ -d "$src" ]] || exit 1mkdir -p "$dest" 2>/dev/null || exit 1 #проверка директорий
+
+files() { #функция обработки
     local full_path="$1"
     local filename=$(basename -- "$full_path")
     local base="${filename%.*}"
     local ext="${filename##*.}"
-    [[ "$base"=="$filename" ]] && ext="" || ext=".$ext"
+    if [[ "$base" == "$filename" ]]; then
+        ext=""
+    else
+        ext=".$ext"
+    fi
     local counter=1
     local target="${dest}/${base}${ext}"
-    while [[ -e "${target}" ]]; do
-        target="${dest}/${base}_${counter}${ext}"
+    while [[ -e "${target}" ]];do
+        if [[ -z "$ext" ]]; then
+            target="${dest}/${base}_${counter}"
+        else
+            target="${dest}/${base}_${counter}${ext}"
+        fi
         ((counter++))
     done
     cp -- "$full_path" "$target" 2>/dev/null
 }
-if (( max_depth >= 0 ));then
-    depth=$((max_depth + 1))
-    find "$src" -type f -mindepth 1 -maxdepth "$depth" -print0 2>/dev/null | while IFS= read -r -d '' file;do
-        process_file "$file"
+if (( max_depth >= 0 ));then #обход файлов
+    find "$src" -type f -mindepth 1 -maxdepth $((max_depth + 1)) -print0 2>/dev/null | while IFS= read -r -d '' file; do
+        files "$file"
     done
 else
-    find "$src" -type f -print0 2>/dev/null | while IFS= read -r -d '' file;do
-        process_file "$file"
+    find "$src" -type f -print0 2>/dev/null | while IFS=read -r -d '' file;do
+        files "$file"
     done
 fi
