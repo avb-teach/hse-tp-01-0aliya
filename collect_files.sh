@@ -16,6 +16,7 @@ else
     src=$1
     dest=$2
 fi
+
 [[ -d "$src" ]] || exit 1
 mkdir -p "$dest" 2>/dev/null || exit 1
 process_file() {
