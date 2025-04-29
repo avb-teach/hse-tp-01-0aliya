@@ -2,51 +2,54 @@
 max_depth=-1 #парсинг параметров
 src=""
 dest=""
-if [[ "$1" == "--max_depth" ]];then #обработка глубины
-    if [[ $# -ne 4 || ! "$2" =~ ^[0-9]+$ ]];then
+if [[ "$1" == "--max_depth" ]]; then #обработка глубины
+    if [[ $# -ne 4 || ! "$2" =~ ^[0-9]+$ ]]; then
         exit 1
     fi
-    max_depth=$2
-    src=$3
-    dest=$4
+    max_depth="$2"
+    src="$3"
+    dest="$4"
 else
-    if [[ $# -ne 2 ]];then
+    if [[ $# -ne 2 ]]; then
         exit 1
     fi
-    src=$1
-    dest=$2
+    src="$1"
+    dest="$2"
 fi
+#проверка директорий
+[[ -d "$src" ]] || exit 1
+mkdir -p "$dest" || exit 1
 
-[[ -d "$src" ]] || exit 1mkdir -p "$dest" 2>/dev/null || exit 1 #проверка директорий
-
-files() { #функция обработки
-    local full_path="$1"
-    local filename=$(basename -- "$full_path")
+process_file(){ #функция обработки
+    local file="$1"
+    local filename=$(basename -- "$file")
     local base="${filename%.*}"
     local ext="${filename##*.}"
-    if [[ "$base" == "$filename" ]]; then
+    if [[ "$base" == "$filename" ]]; then #обработка файлов без расширения
         ext=""
     else
         ext=".$ext"
     fi
+    local target="$dest/$base$ext"
     local counter=1
-    local target="${dest}/${base}${ext}"
-    while [[ -e "${target}" ]];do
-        if [[ -z "$ext" ]]; then
-            target="${dest}/${base}_${counter}"
+    while [[ -e "$target"]];do #разрешение конфликтов имен
+        if [[ -z "$ext"]]; then
+            target="$dest/${base}_$counter"
         else
-            target="${dest}/${base}_${counter}${ext}"
+            target="$dest/${base}_$counter$ext"
         fi
         ((counter++))
     done
-    cp -- "$full_path" "$target" 2>/dev/null
+    cp -- "$file" "$target" 2>/dev/null
 }
-if (( max_depth >= 0 ));then #обход файлов
-    find "$src" -type f -mindepth 1 -maxdepth $((max_depth + 1)) -print0 2>/dev/null | while IFS= read -r -d '' file; do
-        files "$file"
+if (( max_depth>=0 ));then #Обход файлов
+    find "$src" -type f -mindepth 1 -maxdepth $((max_depth + 1)) -print0 2>/dev/null | while IFS= read -r -d '' file;do #ограниченная глубина
+        process_file "$file"
     done
 else
-    find "$src" -type f -print0 2>/dev/null | while IFS=read -r -d '' file;do
-        files "$file"
+    find "$src" -type f -print0 2>/dev/null | while IFS= read -r -d '' file;do #полная глубина
+        process_file "$file"
     done
 fi
+
+exit 0
