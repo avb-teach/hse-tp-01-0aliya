@@ -1,31 +1,44 @@
 #!/bin/bash
-d=-1
-i=""
-o=""
-if [["$1"=="--md" ]];then
-    (( $#!=4))&& exit 1
-    [["$2"=~^[0-9]+$]] || exit 1
-    d="$2"
-    i="$3"
-    o="$4"
+max_depth=-1
+src=""
+dest=""
+if [[ "$1" == "--max_depth" ]];then
+    if [[ $# -ne 4 || ! "$2" =~ ^[0-9]+$ ]];then
+        exit 1
+    fi
+    max_depth=$2
+    src=$3
+    dest=$4
 else
-    (($#!=2)) && exit 1
-    i="$1"
-    o="$2"
+    if [[ $# -ne 2 ]];then
+        exit 1
+    fi
+    src=$1
+    dest=$2
 fi
-[[-d"$i"]] || exit 1
-mkdir -p "$o" 2>/dev/null
-fargs=("$i"-type f)
-((d!=-1)) && fargs+=(-mindepth 1 -maxdepth $((d+1)))
-while IFS= read -r -d '' fp; do
-    bn=$(basename -- "$fp")
-    n="${bn%.*}"
-    x="${bn##*.}"
-    [[ "$n"=="$bn" ]] && x="" || x=".$x"
-    t="$o/$n$x"
-    cnt=1
-    while [[-e"$t"]]; do
-        t="$o/${n}_$((cnt++))$x"
+[[ -d "$src" ]] || exit 1
+mkdir -p "$dest" 2>/dev/null || exit 1
+process_file() {
+    local full_path="$1"
+    local filename=$(basename -- "$full_path")
+    local base="${filename%.*}"
+    local ext="${filename##*.}"
+    [[ "$base"=="$filename" ]] && ext="" || ext=".$ext"
+    local counter=1
+    local target="${dest}/${base}${ext}"
+    while [[ -e "${target}" ]]; do
+        target="${dest}/${base}_${counter}${ext}"
+        ((counter++))
     done
-    cp -- "$fp" "$t" 2>/dev/null
-done < <(find "${fargs[@]}" -print0 2>/dev/null)
+    cp -- "$full_path" "$target" 2>/dev/null
+}
+if (( max_depth >= 0 ));then
+    depth=$((max_depth + 1))
+    find "$src" -type f -mindepth 1 -maxdepth "$depth" -print0 2>/dev/null | while IFS= read -r -d '' file;do
+        process_file "$file"
+    done
+else
+    find "$src" -type f -print0 2>/dev/null | while IFS= read -r -d '' file;do
+        process_file "$file"
+    done
+fi
